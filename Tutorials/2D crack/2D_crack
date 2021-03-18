@@ -1,0 +1,55 @@
+# 2d LJ crack simulation
+###################Settings#####################
+dimension	2
+boundary	s s p
+atom_style	atomic
+###################Structure#####################
+lattice		hex 0.93
+region		box block 0 100 0 40 -0.25 0.25
+###################Creation#####################
+create_box	5 box
+create_atoms	1 box
+###################Masses#####################
+mass		1 1.0
+mass		2 1.0
+mass		3 1.0
+mass		4 1.0
+mass		5 1.0
+###################Regions#####################
+region	        1 block INF INF INF 1.25 INF INF
+region		2 block INF INF 38.75 INF INF INF
+region		leftupper block INF 20 20 INF INF INF
+region		leftlower block INF 20 INF 20 INF INF
+###################Groups#####################
+group		lower region 1
+group		upper region 2
+group		boundary union lower upper
+group		mobile subtract all boundary
+group		leftupper region leftupper
+group		leftlower region leftlower
+set		group leftupper type 2
+set		group leftlower type 3
+set		group lower type 4
+set		group upper type 5
+###################initial velocities#####################
+compute	  	new mobile temp
+velocity	mobile create 0.01 887723 temp new
+velocity	upper set 0.0 0.3 0.0
+velocity	mobile ramp vy 0.0 0.3 y 1.25 38.75 sum yes
+###################Potentials################################
+pair_style	lj/cut 2.5
+pair_coeff	* * 1.0 1.0 2.5
+###################fixes################################
+fix		1 all nve
+fix		2 boundary setforce NULL 0.0 0.0
+###################Computation#################
+compute 	stN11 all stress/atom NULL
+variable	Sgiga1	equal (c_stN12)/(10000*4000)
+dump            st all custom 100 stress.cfg id type x y z c_stN11[1] c_stN11[2]
+#################Printing############################
+dump 1 all xyz 100 fric.xyz
+thermo		200
+neigh_modify	exclude type 2 3
+#################Run####################################
+timestep	0.0005
+run		50000
