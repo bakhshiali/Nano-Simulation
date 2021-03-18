@@ -1,0 +1,77 @@
+# 2d friction simulation
+log AliBakhshi.log
+dimension	2
+boundary	p s p
+atom_style	atomic
+units lj
+
+lattice		hex 0.9
+
+region		box block 0 50 0 22 -0.25 0.25
+create_box	4 box
+
+mass		1 1.0
+mass		2 1.0
+mass		3 1.0
+mass		4 1.0
+
+#region		box block 0 50 0 22 -0.25 0.25
+region          lo-fixed block INF INF INF 1.1 INF INF
+region          lo-slab block INF INF INF 7 INF INF
+region          above-lo block INF INF INF 7 INF INF side out
+region          hi-fixed block INF INF 20.9 INF INF INF
+region          hi-slab block INF INF 15 INF INF INF
+region          below-hi block INF INF 15 INF INF INF side out
+
+region		    lo-asperity1 cone y 5 0 5 0 8 12
+region		    lo-asperity2 cone y 15 0 5 0 8 12
+region			lo-asperity union 2 lo-asperity1 lo-asperity2
+region		    hi-asperity1 cone y 34 0 0 5 9 15
+region		    hi-asperity2 cone y 24 0 0 5 9 15 
+region		    hi-asperity3 cone y 44 0 0 5 9 15
+region			hi-asperity union 3 hi-asperity1 hi-asperity2 hi-asperity3
+
+region asd sphere 0 0 0 0 side out
+region		lo-half-sphere intersect 2 lo-asperity above-lo
+region		hi-half-sphere intersect 2 hi-asperity below-hi
+region lo-slab1 intersect 2 lo-slab asd
+
+create_atoms	1 region lo-slab1
+create_atoms	1 region hi-slab
+create_atoms	2 region lo-half-sphere
+create_atoms	3 region hi-half-sphere
+
+pair_style	lj/cut 2.5
+pair_coeff	* * 1.0 1.0
+
+group	    lo region lo-slab
+group		lo type 2
+group		hi region hi-slab
+group		hi type 3
+group		lo-fixed region lo-fixed
+group		hi-fixed region hi-fixed
+group		boundary union lo-fixed hi-fixed
+group		mobile subtract all boundary
+group lhs region lo-half-sphere
+group hhs region hi-half-sphere
+
+set		group lo-fixed type 4
+set		group hi-fixed type 4
+
+compute         new mobile temp/partial 0 1 0
+velocity	mobile create 0.1 482748 temp new
+velocity	hi set 0.2 0.0 0.0 sum yes
+
+fix		1 all nve
+fix		2 boundary setforce 0.0 0.0 0.0
+fix		3 mobile temp/rescale 200 0.1 0.1 0.02 1.0
+fix_modify	3 temp new
+fix             4 all enforce2d
+
+timestep	0.025
+thermo		100                 
+thermo_modify	temp new
+dump 10 all xyz 100 fric.xyz
+dump		11 lhs custom 100 dump.fl id type x y z vx vy vz fx fy fz
+dump		12 hhs custom 100 dump.fh id type x y z vx vy vz fx fy fz
+run		20000    
